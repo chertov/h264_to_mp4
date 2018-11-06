@@ -1,0 +1,9 @@
+[package]
+name = "h264_to_mp4"
+version = "0.1.0"
+authors = ["chertov <chertovmv@gmail.com>"]
+edition = "2018"
+
+[dependencies]
+bytes = "0.4"
+byteorder = "1.2"

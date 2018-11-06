@@ -1,0 +1,13 @@
+*
+!*/
+
+!/LICENSE
+!/src/**/*.rs
+!/Cargo.toml
+
+!/stream_chn0.h264
+!/index.html
+!/ffmpeg.sh
+
+!.gitignore
+!*/.gitignore
