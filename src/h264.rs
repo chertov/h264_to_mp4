@@ -55,7 +55,7 @@ impl NalUnitType {
 }
 
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct NAL {
     pub start: usize,
     pub unit_type: NalUnitType,
@@ -150,7 +150,7 @@ pub fn get_nal(buf: &Vec<u8>, offset: usize) -> Option<NAL> {
     Some(nal)
 }
 
-pub fn main_h264(path: &str) -> Result<Vec<IDR>, ()> {
+pub fn main_h264(path: &str) -> Result<(Vec<IDR>, NAL, NAL), ()> {
     let mut file = std::fs::File::open(path).unwrap();
     let mut contents = Vec::new();
     file.read_to_end(&mut contents).unwrap();
@@ -163,10 +163,18 @@ pub fn main_h264(path: &str) -> Result<Vec<IDR>, ()> {
 
     let mut idrs = vec![];
     let mut idr = IDR{samples: vec![]};
+    let mut first = true;
+    let mut sps = NAL{start: 0, end: 0, data: vec![], unit_type: NalUnitType::SPS,};
+    let mut pps = NAL{start: 0, end: 0, data: vec![], unit_type: NalUnitType::PPS};
     loop {
         let nal = get_nal(&contents, offset);
         if nal.is_none() { break }
         let nal = nal.unwrap();
+        if first {
+            if nal.unit_type == NalUnitType::SPS { sps = nal.clone(); }
+            if nal.unit_type == NalUnitType::SPS { pps = nal.clone(); }
+            first = false;
+        }
         if nal.unit_type == NalUnitType::SPS {
             if idr.samples.len() > 0 {
                 idrs.push(idr);
@@ -174,7 +182,7 @@ pub fn main_h264(path: &str) -> Result<Vec<IDR>, ()> {
             }
         }
         idr.samples.push((nal.unit_type.clone(), nal.data.clone()));
-        //println!("{}:     {:?}   size: {}", count, nal.unit_type, nal.end - nal.start);
+        println!("{}:     {:?}   size: {}", count, nal.unit_type, nal.end - nal.start);
         offset = nal.end;
         count += 1;
     }
@@ -197,5 +205,5 @@ pub fn main_h264(path: &str) -> Result<Vec<IDR>, ()> {
 
     // let pos = cur.position() as usize;
 
-    Ok(idrs)
+    Ok((idrs, sps, pps))
 }

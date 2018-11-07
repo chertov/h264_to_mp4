@@ -1,27 +1,38 @@
 use bytes::{BytesMut, BufMut};
 
+pub struct MoovInfo {
+    pub sps: Vec<u8>,
+    pub pps: Vec<u8>,
+    pub width: u16,
+    pub height: u16,
+    pub horizontal_resolution: u32,
+    pub vertical_resolution: u32,
+    pub creation_time: u32,
+    pub timescale: u32,
+}
+
 fn write_atom(parent: &mut BytesMut, id: &[u8; 4], atom: BytesMut) {
     parent.put_u32_be(atom.len() as u32 + 8_u32);
     parent.put_slice(&id[..]);
     parent.put_slice(atom.as_ref());
 }
 
-pub fn write_moov(parent: &mut BytesMut, ) {
+pub fn write_moov(parent: &mut BytesMut, moov_info: &MoovInfo) {
     let mut buf = BytesMut::with_capacity(1024*1024);
-    write_mvhd(&mut buf);
-    write_trak(&mut buf);
+    write_mvhd(&mut buf, moov_info);
+    write_trak(&mut buf, moov_info);
     write_mvex(&mut buf);
-    write_udta(&mut buf);
+    // write_udta(&mut buf);
     write_atom(parent, b"moov", buf);
 }
 
-fn write_mvhd(parent: &mut BytesMut, ) {
+fn write_mvhd(parent: &mut BytesMut, moov_info: &MoovInfo) {
     let mut buf = BytesMut::with_capacity(1024*1024);
     buf.put_u8(0);  // 1 version
     buf.put_u8(0); buf.put_u8(0); buf.put_u8(0);  // 3 flags
-    buf.put_u32_be(0);  // 4 creation_time
+    buf.put_u32_be(moov_info.creation_time);  // 4 creation_time
     buf.put_u32_be(0);  // 4 modification_time
-    buf.put_u32_be(1000);  // 4 timescale
+    buf.put_u32_be(moov_info.timescale);  // 4 timescale
     buf.put_u32_be(0);  // 4 duration
     buf.put_u32_be(65536);  // 4 preferred rate
     buf.put_u16_le(1);  // 2 preferred volume
@@ -48,17 +59,17 @@ fn write_mvhd(parent: &mut BytesMut, ) {
     write_atom(parent, b"mvhd", buf);
 }
 
-fn write_trak(parent: &mut BytesMut, ) {
+fn write_trak(parent: &mut BytesMut, moov_info: &MoovInfo) {
     let mut buf = BytesMut::with_capacity(1024);
-    write_tkhd(&mut buf);
-    write_mdia(&mut buf);
+    write_tkhd(&mut buf, moov_info);
+    write_mdia(&mut buf, moov_info);
     write_atom(parent, b"trak", buf);
 }
-fn write_tkhd(parent: &mut BytesMut, ) {
+fn write_tkhd(parent: &mut BytesMut, moov_info: &MoovInfo) {
     let mut buf = BytesMut::with_capacity(1024);
     buf.put_u8(0);  // 1 version
     buf.put_u8(0); buf.put_u8(0); buf.put_u8(3);  // 3 flags
-    buf.put_u32_be(0);  // 4 creation_time
+    buf.put_u32_be(moov_info.creation_time);  // 4 creation_time
     buf.put_u32_be(0);  // 4 modification_time
     buf.put_u32_be(1);  // 4 track id
     buf.put_u32_be(0);  // 4 reserved
@@ -85,23 +96,22 @@ fn write_tkhd(parent: &mut BytesMut, ) {
     write_atom(parent, b"tkhd", buf);
 }
 
-
-fn write_mdia(parent: &mut BytesMut, ) {
+fn write_mdia(parent: &mut BytesMut, moov_info: &MoovInfo) {
     let mut buf = BytesMut::with_capacity(1024);
-    write_mdhd(&mut buf);
+    write_mdhd(&mut buf, moov_info);
     write_hdlr(&mut buf, b"vide", "VideoHandler", b"\0\0\0\0");
-    write_minf(&mut buf);
+    write_minf(&mut buf, moov_info);
 
     write_atom(parent, b"mdia", buf);
 }
 
-fn write_mdhd(parent: &mut BytesMut, ) {
+fn write_mdhd(parent: &mut BytesMut, moov_info: &MoovInfo) {
     let mut buf = BytesMut::with_capacity(1024);
     buf.put_u8(0);  // 1 version
     buf.put_u8(0); buf.put_u8(0); buf.put_u8(0);  // 3 flags
     buf.put_u32_be(0);  // 4 creation_time
     buf.put_u32_be(0);  // 4 modification_time
-    buf.put_u32_be(1200000);  // 4 timescale
+    buf.put_u32_be(moov_info.timescale);  // 4 timescale
     buf.put_u32_be(0);  // 4 duration
     buf.put_u16_be(21956);  // 2 language
     buf.put_u16_be(0);  // 2 quality
@@ -109,14 +119,13 @@ fn write_mdhd(parent: &mut BytesMut, ) {
     write_atom(parent, b"mdhd", buf);
 }
 
-fn write_minf(parent: &mut BytesMut, ) {
+fn write_minf(parent: &mut BytesMut, moov_info: &MoovInfo) {
     let mut buf = BytesMut::with_capacity(1024);
     write_vmhd(&mut buf);
     write_dinf(&mut buf);
-    write_stbl(&mut buf);
+    write_stbl(&mut buf, moov_info);
     write_atom(parent, b"minf", buf);
 }
-
 
 fn write_dinf(parent: &mut BytesMut, ) {
     let mut buf = BytesMut::with_capacity(1024);
@@ -153,9 +162,9 @@ fn write_vmhd(parent: &mut BytesMut, ) {
 }
 
 
-fn write_stbl(parent: &mut BytesMut, ) {
+fn write_stbl(parent: &mut BytesMut, moov_info: &MoovInfo) {
     let mut buf = BytesMut::with_capacity(1024);
-    write_stsd(&mut buf);
+    write_stsd(&mut buf, moov_info);
     write_stts(&mut buf);
     write_stsc(&mut buf);
     write_stsz(&mut buf);
@@ -164,17 +173,17 @@ fn write_stbl(parent: &mut BytesMut, ) {
     write_atom(parent, b"stbl", buf);
 }
 
-fn write_stsd(parent: &mut BytesMut, ) {
+fn write_stsd(parent: &mut BytesMut, moov_info: &MoovInfo) {
     let mut buf = BytesMut::with_capacity(1024);
     buf.put_u8(0);  // 1 version
     buf.put_u8(0); buf.put_u8(0); buf.put_u8(0);  // 3 flags
     buf.put_u32_be(1); // 4  Number of entries
-    write_avc1(&mut buf);
+    write_avc1(&mut buf, moov_info);
 
     write_atom(parent, b"stsd", buf);
 }
 
-fn write_avc1(parent: &mut BytesMut, ) {
+fn write_avc1(parent: &mut BytesMut, moov_info: &MoovInfo) {
     let mut buf = BytesMut::with_capacity(1024);
 //    buf.put_u16_be(0);  // 1 version
 //    buf.put_u16_be(0);  // 1 revision
@@ -197,10 +206,10 @@ fn write_avc1(parent: &mut BytesMut, ) {
     buf.put_u32_be(0);
     buf.put_u32_be(0);
     buf.put_u32_be(0); // pre_defined
-    buf.put_u16_be(1920); // 2 width
-    buf.put_u16_be(1080); // 2 height
-    buf.put_u32_be(4718592); // 4 horizontal_resolution
-    buf.put_u32_be(4718592); // 4 vertical_resolution
+    buf.put_u16_be(moov_info.width); // 2 width
+    buf.put_u16_be(moov_info.height); // 2 height
+    buf.put_u32_be(moov_info.horizontal_resolution); // 4 horizontal_resolution
+    buf.put_u32_be(moov_info.vertical_resolution); // 4 vertical_resolution
     buf.put_u32_be(0); // reserved
     buf.put_u16_be(1); // 2 frame_count
     buf.put_u8(0);
@@ -214,13 +223,13 @@ fn write_avc1(parent: &mut BytesMut, ) {
         0, 0, 0][..]); // compressorname
     buf.put_u16_be(24); // 2 depth
     buf.put_u16_be(0xffff); // 2 color_table_id
-    write_avcC(&mut buf);
+    write_avcC(&mut buf, moov_info);
 
     write_atom(parent, b"avc1", buf);
 }
 
 #[allow(non_snake_case)]
-fn write_avcC(parent: &mut BytesMut, ) {
+fn write_avcC(parent: &mut BytesMut, moov_info: &MoovInfo) {
     let mut buf = BytesMut::with_capacity(1024);
     buf.put_u8(1);  // 1 version
     buf.put_u8(66);  // 1 profile
@@ -230,14 +239,12 @@ fn write_avcC(parent: &mut BytesMut, ) {
     buf.put_u8(0xFF);  // 6 bits reserved (111111) + 2 bits nal size length - 1 (11)
     buf.put_u8(0xE1);  // 3 bits reserved (111) + 5 bits number of sps (00001)
 
-    let sps = [103,66,0,42,157,168,30,0,137,249,102,224,32,32,32,64];
-    buf.put_u16_be(sps.len() as u16);
-    buf.put(&sps[..]); // SPS
+    buf.put_u16_be(moov_info.sps.len() as u16);
+    buf.put(moov_info.sps.as_slice()); // SPS
 
     buf.put_u8(1);  // 1 num pps
-    let pps = [104,206,60,128,0];
-    buf.put_u16_be(pps.len() as u16);
-    buf.put(&pps[..]); // pps
+    buf.put_u16_be(moov_info.pps.len() as u16);
+    buf.put(moov_info.pps.as_slice()); // pps
 
     write_atom(parent, b"avcC", buf);
 }
